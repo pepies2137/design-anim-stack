@@ -1,0 +1,24 @@
+#!/bin/sh
+# motionq — woła motion-anything (kontener Design & Motion) z hosta, bez wchodzenia do Docker-a.
+#   motionq list                 lista przepisow (218)
+#   motionq add <recipe-id>      eksport przepisu -> ./motion-skills/<id>/ (SKILL.md + .js + .css + preview.html)
+# Kontener znajdowany po labelach compose, wiec przezyje zmiane nazwy w Dokploy.
+set -e
+CID=$(docker ps -q --filter "label=com.docker.compose.service=motion-anything" | head -1)
+if [ -z "$CID" ]; then
+  echo "motionq: brak dzialajacego kontenera motion-anything (docker ps | grep motion)" >&2
+  exit 1
+fi
+case "$1" in
+  list) exec docker exec -i "$CID" node /app/cli/bin/motion.js list ;;
+  add)
+    R="$2"
+    [ -z "$R" ] && { echo "uzycie: motionq add <recipe-id>" >&2; exit 2; }
+    docker exec -i -w /app/app/user-skills "$CID" node /app/cli/bin/motion.js add "$R" >/dev/null
+    mkdir -p ./motion-skills
+    docker cp "$CID:/app/app/user-skills/motion-skills/$R" "./motion-skills/$R" >/dev/null
+    echo "motionq: przepis '$R' -> ./motion-skills/$R"
+    ls -1 "./motion-skills/$R"
+    ;;
+  *) echo "uzycie: motionq list | motionq add <recipe-id>" ;;
+esac
