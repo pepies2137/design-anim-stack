@@ -42,9 +42,20 @@ echo "[design-anim] opencode: $(opencode --version 2>/dev/null || echo BRAK)"
 echo "[design-anim] model:    ${OPENCODE_MODEL:-pepies/programowanieciezkie}"
 echo "[design-anim] UI:       http://0.0.0.0:${PUBLIC_PORT} (basic auth: ${MOTION_USER})"
 
-node /app/cli/bin/motion.js serve "$MA_PORT" >"$HOME_DIR/motion.log" 2>&1 &
-MA_PID=$!
-trap 'kill $MA_PID 2>/dev/null || true' TERM INT
+# --- aplikacja + supervisor -------------------------------------------------
+# motion-anything to pojedynczy proces node; w upstreamie blad w obsludze requestu potrafi go
+# zabic (ERR_HTTP_HEADERS_SENT — zabezpieczone patchem w obrazie). Supervisor jest RODZICEM
+# procesu (dlatego `wait` zbiera zombie) i podnosi app znowu, zeby caddy nie zwracal 502.
+(
+  while true; do
+    node /app/cli/bin/motion.js serve "$MA_PORT" >>"$HOME_DIR/motion.log" 2>&1 &
+    APP_PID=$!
+    echo "[design-anim] motion-anything start (pid $APP_PID, port $MA_PORT)"
+    wait "$APP_PID" || true   # || true: inaczej `set -e` ubija supervisor po zabiciu app
+    echo "[design-anim] $(date -u +%FT%TZ) motion-anything zakonczyl sie — restart za 5s" >>"$HOME_DIR/motion.log"
+    sleep 5
+  done
+) &
 
 # czekamy az app wstanie, potem oddajemy terminal caddy'emu
 for i in $(seq 1 40); do

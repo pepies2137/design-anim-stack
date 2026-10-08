@@ -23,6 +23,9 @@ RUN git clone --depth 1 --branch "${MA_REF}" https://github.com/nexu-io/motion-a
 
 RUN npm i -g "opencode-ai@${OPENCODE_VERSION}" && npm cache clean --force
 
+COPY motion-anything/patch-motion.py /tmp/patch-motion.py
+RUN python3 /tmp/patch-motion.py /app/cli/bin/motion.js
+
 COPY opencode/opencode.template.json /opt/opencode/opencode.template.json
 COPY opencode/init-config.mjs /opt/opencode/init-config.mjs
 COPY opencode/init-auth.mjs /opt/opencode/init-auth.mjs
