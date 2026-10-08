@@ -31,7 +31,7 @@ def call(method, params=None, timeout=120):
     return {"error": "timeout"}
 
 def tool(name, args, timeout=600):
-    return call("tools/call", {"name": name, "params": args}, timeout=timeout)
+    return call("tools/call", {"name": name, "arguments": args}, timeout=timeout)
 
 init = call("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "hermes-e2e", "version": "1"}})
 print("initialize:", json.dumps(init.get("result", {}).get("serverInfo")))
