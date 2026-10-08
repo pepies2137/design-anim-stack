@@ -36,41 +36,44 @@ def tool(name, args, timeout=600):
 init = call("initialize", {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "hermes-e2e", "version": "1"}})
 print("initialize:", json.dumps(init.get("result", {}).get("serverInfo")))
 
-agents = tool("list_agents", {})
-txt = json.dumps(agents)
-print("list_agents (fragment):", txt[:300])
+def tool_text(name, args, timeout=600):
+    """Wywoluje narzedzie i zwraca sparsowany JSON z jego odpowiedzi (MCP pakuje wynik w content[].text)."""
+    r = tool(name, args, timeout=timeout)
+    res = r.get("result", {})
+    txt = "".join(c.get("text", "") for c in res.get("content", []) if isinstance(c, dict))
+    if res.get("isError"):
+        print(f"  ! {name}: {txt[:200]}")
+        return None
+    try:
+        return json.loads(txt)
+    except Exception:
+        print(f"  ? {name}: {txt[:200]}")
+        return None
 
-proj = tool("create_project", {"name": "test-silnika-opencode", "id": "test-silnika-opencode"})
-print("create_project:", json.dumps(proj)[:300])
+agents = tool_text("list_agents", {})
+if agents:
+    print("silniki dostepne:", [a.get("id") for a in agents.get("agents", [])])
 
-run = tool("start_run", {"project": "test-silnika-opencode", "agent": "opencode",
-                         "prompt": "Krotki landing hero: naglowek, podtytul, jeden przycisk. Czysty HTML+CSS, bez zewnetrznych zasobow."})
-print("start_run:", json.dumps(run)[:400])
+proj = tool_text("create_project", {"name": "test-silnika-opencode", "id": "test-silnika-opencode"})
+print("create_project:", (proj or {}).get("project", {}).get("id"))
 
-rid = None
-try:
-    payload = run.get("result", {})
-    blob = json.dumps(payload)
-    import re
-    m = re.search(r'"(runId|id)"\s*:\s*"([^"]+)"', blob)
-    if m:
-        rid = m.group(2)
-except Exception:
-    pass
-if not rid:
-    print("BRAK runId — koncze"); p.kill(); sys.exit(2)
+run = tool_text("start_run", {"project": "test-silnika-opencode", "agent": "opencode",
+                              "prompt": "Krotki landing hero: naglowek, podtytul, jeden przycisk. Czysty HTML+CSS, bez zewnetrznych zasobow."})
+if not run:
+    print("BRAK runu — koncze"); p.kill(); sys.exit(2)
+rid = run.get("runId")
+status = run.get("status")
+print("start_run:", rid, "| status:", status)
 
 for i in range(40):
-    time.sleep(15)
-    st = tool("get_run", {"runId": rid})
-    blob = json.dumps(st)
-    status = None
-    import re
-    m = re.search(r'"status"\s*:\s*"([a-z]+)"', blob)
-    if m:
-        status = m.group(1)
-    print(f"[{i*15+15}s] status={status}")
     if status in ("succeeded", "failed", "canceled"):
-        print("FINAL:", blob[:1500])
         break
+    time.sleep(15)
+    st = tool_text("get_run", {"runId": rid}) or {}
+    status = st.get("status")
+    print(f"[{(i + 1) * 15}s] status={status} | files={len(st.get('files') or [])} | err={str(st.get('error'))[:120]}")
+
+print("FINAL:", json.dumps({"runId": rid, "status": status, "files": (tool_text('get_run', {'runId': rid}) or {}).get('files')})[:800])
 p.kill()
+sys.exit(0 if status == "succeeded" else 1)
+
