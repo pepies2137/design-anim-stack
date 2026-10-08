@@ -42,7 +42,7 @@ echo "[design-anim] opencode: $(opencode --version 2>/dev/null || echo BRAK)"
 echo "[design-anim] model:    ${OPENCODE_MODEL:-pepies/programowanieciezkie}"
 echo "[design-anim] UI:       http://0.0.0.0:${PUBLIC_PORT} (basic auth: ${MOTION_USER})"
 
-node /app/cli/bin/motion.js serve "$MA_PORT" >/var/log/motion.log 2>&1 &
+node /app/cli/bin/motion.js serve "$MA_PORT" >"$HOME_DIR/motion.log" 2>&1 &
 MA_PID=$!
 trap 'kill $MA_PID 2>/dev/null || true' TERM INT
 
