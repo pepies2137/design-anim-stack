@@ -1,0 +1,14 @@
+# Reverse proxy + basic auth dla motion-anything (upstream binduje sie TYLKO na 127.0.0.1).
+:4399 {
+	basic_auth {
+		{$MOTION_USER} {$MOTION_PASS_HASH}
+	}
+	reverse_proxy 127.0.0.1:4398 {
+		flush_interval -1
+	}
+	encode gzip
+	log {
+		output stdout
+		format console
+	}
+}

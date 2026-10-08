@@ -1,0 +1,82 @@
+# Design & Motion Stack — OpenDesign + motion-anything, silnik: opencode (OmniRoute).
+# Deploy: Dokploy (compose). Sekrety wylacznie z env (Ustawienia -> Environment w Dokploy).
+name: design-anim
+
+services:
+  open-design:
+    build:
+      context: .
+      dockerfile: open-design/Dockerfile
+    image: design-anim/open-design:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: "--max-old-space-size=384"
+      OD_BIND_HOST: 0.0.0.0
+      OD_PORT: "7456"
+      OD_WEB_PORT: "7456"
+      OD_API_TOKEN: ${OD_API_TOKEN:?OD_API_TOKEN wymagany}
+      OD_ALLOWED_ORIGINS: ${OD_ALLOWED_ORIGINS:-}
+      OD_DISABLE_API_AUTH: "0"
+      OPENCODE_MODEL: ${OPENCODE_MODEL:-pepies/programowanieciezkie}
+      OPENCODE_PEPIES_BASE_URL: ${OPENCODE_PEPIES_BASE_URL:-https://router.pepies.pl/v1}
+      OPENCODE_PEPIES_KEY: ${OPENCODE_PEPIES_KEY:-}
+      OPENCODE_GO_KEY: ${OPENCODE_GO_KEY:-}
+    volumes:
+      - od_data:/app/.od
+      - od_home:/home/open-design
+    ports:
+      - "${OD_BIND:-0.0.0.0}:7456:7456"
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    mem_limit: ${OD_MEM_LIMIT:-1024m}
+    pids_limit: 512
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:7456/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  motion-anything:
+    build:
+      context: .
+      dockerfile: motion-anything/Dockerfile
+    image: design-anim/motion-anything:latest
+    restart: unless-stopped
+    environment:
+      MOTION_PORT: "4399"
+      MOTION_USER: ${MOTION_USER:-motion}
+      MOTION_PASS: ${MOTION_PASS:?MOTION_PASS wymagany}
+      NODE_OPTIONS: "--max-old-space-size=768"
+      OPENCODE_MODEL: ${OPENCODE_MODEL:-pepies/programowanieciezkie}
+      OPENCODE_PEPIES_BASE_URL: ${OPENCODE_PEPIES_BASE_URL:-https://router.pepies.pl/v1}
+      OPENCODE_PEPIES_KEY: ${OPENCODE_PEPIES_KEY:-}
+      OPENCODE_GO_KEY: ${OPENCODE_GO_KEY:-}
+    volumes:
+      - ma_projects:/app/app/projects
+      - ma_user_skills:/app/app/user-skills
+      - ma_home:/home/ma
+    ports:
+      - "${MA_BIND:-0.0.0.0}:4399:4399"
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    mem_limit: ${MA_MEM_LIMIT:-1536m}
+    pids_limit: 512
+
+volumes:
+  od_data:
+  od_home:
+  ma_projects:
+  ma_user_skills:
+  ma_home:
